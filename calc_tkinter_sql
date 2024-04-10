@@ -1,0 +1,132 @@
+import sqlite3
+from tkinter import *
+from math import sqrt
+
+class Calculadora:
+    def __init__(self, toplevel):
+        # Initialize tkinter window
+        toplevel.title('Calculadora')
+        toplevel.geometry("300x300")
+
+        # Entry widgets for input values
+        self.frame2 = Frame(toplevel)
+        self.frame2.pack()
+        Label(self.frame2, text='Valor1:', font=('Verdana', '10')).pack(side=LEFT)
+        self.valor1 = Entry(self.frame2, width=10, font=('Verdana', '10'))
+        self.valor1.pack(side=LEFT)
+
+        self.frame3 = Frame(toplevel)
+        self.frame3.pack()
+        Label(self.frame3, text='Valor2:', font=('Verdana', '10')).pack(side=LEFT)
+        self.valor2 = Entry(self.frame3, width=10, font=('Verdana', '10'))
+        self.valor2.pack(side=LEFT)
+
+        # Result display label
+        self.frame5 = Frame(toplevel)
+        self.frame5.pack()
+        self.msg = Label(self.frame5, width=15, font=('Verdana', '10'))
+        self.msg.pack(side=LEFT)
+
+        # Operation buttons
+        self.frame4 = Frame(toplevel)
+        self.frame4.pack()
+        Button(self.frame4, text='+', command=self.somar).pack(side=LEFT)
+        Button(self.frame4, text='-', command=self.subtrair).pack(side=LEFT)
+        Button(self.frame4, text='*', command=self.multiplicar).pack(side=LEFT)
+        Button(self.frame4, text='/', command=self.dividir).pack(side=LEFT)
+        Button(self.frame4, text='Sqrt', command=self.sqrt).pack(side=LEFT)
+
+        # Result display label
+        self.frame6 = Frame(toplevel)
+        self.frame6.pack()
+        Button(self.frame6, text='Limpar Histórico', command=self.limpar_histórico).pack(side=LEFT)
+
+        # History display listbox
+        self.frame7 = Frame(toplevel)
+        self.frame7.pack()
+        self.calculation_listbox = Listbox(self.frame7, width=30, height=5, font=('Verdana', '10'))
+        self.calculation_listbox.pack(pady=10)
+
+        # Initialize database connection and load history
+        self.conn = sqlite3.connect('calculations.db')
+        self.cursor = self.conn.cursor()
+        self.create_table()
+        self.load_past_calculations()
+
+    def create_table(self):
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS calculations (
+                id INTEGER PRIMARY KEY,
+                operation TEXT,
+                result REAL
+            )
+        ''')
+        self.conn.commit()
+
+    def load_past_calculations(self):
+        self.calculation_listbox.delete(0, END)  # Clear current items in listbox
+        self.cursor.execute('SELECT operation, result FROM calculations ORDER BY id DESC')
+        past_calculations = self.cursor.fetchall()
+        for operation, result in past_calculations:
+            self.calculation_listbox.insert(END, f'{operation} = {result:.2f}')
+
+    def somar(self):
+        valor1 = float(self.valor1.get())
+        valor2 = float(self.valor2.get())
+        result = valor1 + valor2
+        self.msg.config(text=f'{result:.2f}')
+        self.store_calculation('+', result)
+
+    def subtrair(self):
+        valor1 = float(self.valor1.get())
+        valor2 = float(self.valor2.get())
+        result = valor1 - valor2
+        self.msg.config(text=f'{result:.2f}')
+        self.store_calculation('-', result)
+
+    def multiplicar(self):
+        valor1 = float(self.valor1.get())
+        valor2 = float(self.valor2.get())
+        result = valor1 * valor2
+        self.msg.config(text=f'{result:.2f}')
+        self.store_calculation('*', result)
+
+    def dividir(self):
+        valor1 = float(self.valor1.get())
+        valor2 = float(self.valor2.get())
+        if valor2 != 0:
+            result = valor1 / valor2
+            self.msg.config(text=f'{result:.2f}')
+            self.store_calculation('/', result)
+        else:
+            self.msg.config(text='Erro: Divisão por zero')
+
+    def sqrt(self):
+        valor1 = float(self.valor1.get())
+        result = sqrt(valor1)
+        self.msg.config(text=f'{result:.2f}')
+        self.store_calculation('sqrt (apenas do Valor1)', result)
+
+    def store_calculation(self, operation, result):
+        self.cursor.execute('INSERT INTO calculations (operation, result) VALUES (?, ?)', (operation, result))
+        self.conn.commit()
+        self.load_past_calculations()  # Update history after storing new calculation
+
+    def mostrar_histórico(self):
+        # Reload and display past calculations history
+        self.load_past_calculations()
+
+    def limpar_histórico(self):
+        # Clear all data from the calculations table
+        self.cursor.execute('DELETE FROM calculations')
+        self.conn.commit()
+        self.load_past_calculations()  # Update history after clearing the table
+
+    def __del__(self):
+        self.conn.close()
+
+# Main application
+if __name__ == "__main__":
+    app = Tk()
+    calculadora = Calculadora(app)
+    app.mainloop()
